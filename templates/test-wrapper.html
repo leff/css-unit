@@ -1,0 +1,10 @@
+<html>
+  <head>
+    <% _.forEach(cssDependencies, function(dep) { %>
+      <link rel="stylesheet" href="<%= dep %>">
+    <% }); %>
+  </head>
+  <body>
+    <%= testContents %>
+  </body>
+</html>
