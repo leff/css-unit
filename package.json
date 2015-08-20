@@ -16,6 +16,7 @@
   "main": "./css-unit",
   "devDependencies": {
     "lodash": "^3.10.1",
+    "node-phantom-simple": "^2.0.3",
     "node-slimerjs": "^1.0.1",
     "slimerjs": "^0.9.6"
   }
