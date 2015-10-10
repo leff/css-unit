@@ -6,6 +6,7 @@ var q = require('q'),
     finalhandler = require('finalhandler'),
     serveStatic = require('serve-static'),
     driver = require('node-phantom-simple'),
+    slimer = require('slimerjs'),
     resemble = require('node-resemble-js');
 
 var port = 9356,
@@ -41,29 +42,30 @@ function stopServer() {
 }
 
 
-function renderTest(file, outputPath) {
+function renderTestHTMLFile(file, outputPath) {
   var context = {
       cssDependencies: (options.cssDependencies) ? options.cssDependencies : '',
       testContents: file.contents
     },
     rendered = testTempalte(context);
-  fs.writeFileSync(outputPath, rendered)
+  fs.writeFileSync(outputPath, rendered);
   return rendered;
 }
 
 
-function runTest(url, outputPath) {
+function capturePNGFile(url, outputPath) {
   startServer();
-  // console.log('runtest', url, outputPath);
+  // console.log('capturePNGFile', url, outputPath);
   var deferred = q.defer();
   deferred.promise.then(stopServer);
 
-  driver.create({ path: require('slimerjs').path }, function(err, browser) {
+  driver.create({ path: slimer.path }, function(err, browser) {
     return browser.createPage(function(err, page) {
       return page.open(url, function(err, status) {
-        page.render(outputPath);
-        browser.exit();
-        deferred.resolve();
+        page.render(outputPath, function(err) {
+          browser.exit();
+          deferred.resolve();
+        });
       });
     });
   });
@@ -75,8 +77,8 @@ function compare(refImg, newImg, diffImgPath) {
 
   var diff = resemble(refImg).compareTo(newImg).onComplete(function(data) {
     if( Number(data.misMatchPercentage) >= 0.01 ) {
-      data.getDiffImage().pack().pipe(fs.createWriteStream(process.cwd() + diffImgPath));
-      deferred.reject(new Error('Unacceptable Difference (' + data.misMatchPercentage + ')\n   Reference: ' + refImg + '\n   New: ' + newImg + '\n   Diff: ' + process.cwd() + diffImgPath ));
+      data.getDiffImage().pack().pipe(fs.createWriteStream(diffImgPath));
+      deferred.reject(new Error('Unacceptable Difference (' + data.misMatchPercentage + ')\n   Reference: ' + refImg + '\n   New: ' + newImg + '\n   Diff: ' + diffImgPath ));
     } else {
       deferred.resolve();
     }
@@ -86,37 +88,37 @@ function compare(refImg, newImg, diffImgPath) {
 
 
 CSSUnit.prototype.reference = function refernce(file) {
-  var destPath = process.cwd() + '/temp/reference/' + file.relative.substr(0, file.relative.lastIndexOf('/'));
-  mkdirp.sync(destPath);
+  mkdirp.sync( process.cwd() + '/temp/reference/' + file.relative.substr(0, file.relative.lastIndexOf('/')) );
 
   var htmlFilePath = '/temp/reference/' + file.relative,
       htmlFileUrl = 'http://localhost:'+port+htmlFilePath,
       renderedPngPath = process.cwd() + '/test/reference/' + file.relative + '.png';
 
-  renderTest(file, process.cwd() + htmlFilePath);
+  renderTestHTMLFile(file, process.cwd() + htmlFilePath);
 
   console.log('creating ref: ' + renderedPngPath);
-  return runTest(htmlFileUrl, renderedPngPath);
+  return capturePNGFile(htmlFileUrl, renderedPngPath);
 }
 
 
 CSSUnit.prototype.test = function test(file) {
-  var dirPath = process.cwd() + '/temp/compare/' + file.relative.substr(0, file.relative.lastIndexOf('/'));
-  mkdirp.sync(dirPath);
-  dirPath = process.cwd() + '/test/diff/' + file.relative.substr(0, file.relative.lastIndexOf('/'));
-  mkdirp.sync(dirPath);
+  var relative_path = file.relative.substr(0, file.relative.lastIndexOf('/'));
+
+  mkdirp.sync( process.cwd() + '/temp/compare/' + relative_path );
+  mkdirp.sync( process.cwd() + '/test/compare/' + relative_path );
+  mkdirp.sync( process.cwd() + '/test/diff/' + relative_path );
 
   var htmlFilePath = '/temp/compare/' + file.relative,
       htmlFileUrl = 'http://localhost:'+port+htmlFilePath,
       refImgPath = process.cwd() + '/test/reference/' + file.relative + '.png',
       newImgPath = process.cwd() + '/test/compare/'   + file.relative + '.png';
 
-  renderTest(file, process.cwd() + htmlFilePath);
+  renderTestHTMLFile(file, process.cwd() + htmlFilePath);
 
-  return runTest(htmlFileUrl, newImgPath)
+  return capturePNGFile(htmlFileUrl, newImgPath)
   .then(function() {
     console.log('comparing => ' + file.relative);
-    return compare(refImgPath, newImgPath, '/test/diff/' + file.relative + '.png');
+    return compare(refImgPath, newImgPath, process.cwd() + '/test/diff/' + file.relative + '.png');
   });
 
 }
