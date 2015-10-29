@@ -53,18 +53,23 @@ function renderTestHTMLFile(file, outputPath) {
 }
 
 
-function capturePNGFile(url, outputPath) {
-  startServer();
-  // console.log('capturePNGFile', url, outputPath);
+function capturePNGFile(url, outputPath, renderOptions) {
   var deferred = q.defer();
+  var viewportSize = { width:1100, height:768 };
+  if( renderOptions.width ) { viewportSize.width = renderOptions.width; }
+  if( renderOptions.height ) { viewportSize.height = renderOptions.height; }
+
+  startServer();
   deferred.promise.then(stopServer);
 
   driver.create({ path: slimer.path }, function(err, browser) {
     return browser.createPage(function(err, page) {
       return page.open(url, function(err, status) {
-        page.render(outputPath, function(err) {
-          browser.exit();
-          deferred.resolve();
+        page.set('viewportSize', viewportSize, function() {
+          page.render(outputPath, function(err) {
+            browser.exit();
+            deferred.resolve();
+          });
         });
       });
     });
@@ -86,7 +91,12 @@ function compare(refImg, newImg, diffImgPath) {
   return deferred.promise;
 }
 
+/**
+  Create a reference for a given file.
 
+  The file is a gulp/node file object.
+  If it has an options property, we will look in it for viewport height and width settings.
+*/
 CSSUnit.prototype.reference = function refernce(file) {
   mkdirp.sync( process.cwd() + '/temp/reference/' + file.relative.substr(0, file.relative.lastIndexOf('/')) );
 
@@ -97,10 +107,15 @@ CSSUnit.prototype.reference = function refernce(file) {
   renderTestHTMLFile(file, process.cwd() + htmlFilePath);
 
   console.log('creating ref: ' + renderedPngPath);
-  return capturePNGFile(htmlFileUrl, renderedPngPath);
+  return capturePNGFile(htmlFileUrl, renderedPngPath, file.options);
 }
 
+/**
+  Test the previously created reference for a given file against a newly generated comparison file.
 
+  The file is a gulp/node file object.
+  If it has an options property, we will look in it for viewport height and width settings.
+*/
 CSSUnit.prototype.test = function test(file) {
   var relative_path = file.relative.substr(0, file.relative.lastIndexOf('/'));
 
@@ -115,12 +130,11 @@ CSSUnit.prototype.test = function test(file) {
 
   renderTestHTMLFile(file, process.cwd() + htmlFilePath);
 
-  return capturePNGFile(htmlFileUrl, newImgPath)
+  return capturePNGFile(htmlFileUrl, newImgPath, file.options)
   .then(function() {
     console.log('comparing => ' + file.relative);
     return compare(refImgPath, newImgPath, process.cwd() + '/test/diff/' + file.relative + '.png');
   });
-
 }
 
 
