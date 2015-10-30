@@ -1,8 +1,32 @@
+/**
+  css-unit
+
+  Given a small chunck of HTML, render it as an image, then do it again later and
+  see what's changed.
+
+  @author Jason Brackins
+*/
+
+
+/*
+  specBaseDir is where all the specs live in your project
+
+  We need this info so that we can match our output paths to the input paths,
+  regardless of glob. We want the caller to be able to specify the file
+  in mulitple ways (glob, full path, etc) and always have the output go to the
+  same place.
+
+  @TODO: make this an option.
+*/
+var specBaseDir = '/specs/';
+
+
 var q = require('q'),
     fs = require('fs'),
     http = require('http'),
     _ = require('lodash'),
     mkdirp = require('mkdirp'),
+    path = require('path'),
     finalhandler = require('finalhandler'),
     serveStatic = require('serve-static'),
     driver = require('node-phantom-simple'),
@@ -91,6 +115,15 @@ function compare(refImg, newImg, diffImgPath) {
   return deferred.promise;
 }
 
+
+function relativePath(file, relativeBaseDir) {
+  return path.relative(path.join(file.cwd, relativeBaseDir), file.path);
+}
+
+function relativeDir(relative_path) {
+  return relative_path.substr(0, relative_path.lastIndexOf('/'));
+}
+
 /**
   Create a reference for a given file.
 
@@ -98,11 +131,14 @@ function compare(refImg, newImg, diffImgPath) {
   If it has an options property, we will look in it for viewport height and width settings.
 */
 CSSUnit.prototype.reference = function refernce(file) {
-  mkdirp.sync( process.cwd() + '/temp/reference/' + file.relative.substr(0, file.relative.lastIndexOf('/')) );
+  var relative_path = relativePath(file, specBaseDir),
+      relative_dir = relativeDir(relative_path);
 
-  var htmlFilePath = '/temp/reference/' + file.relative,
+  mkdirp.sync( path.join(process.cwd(), '/temp/reference/', relative_dir) );
+
+  var htmlFilePath = path.join('/temp/reference/', relative_path),
       htmlFileUrl = 'http://localhost:'+port+htmlFilePath,
-      renderedPngPath = process.cwd() + '/test/reference/' + file.relative + '.png';
+      renderedPngPath = path.join(process.cwd(), '/test/reference/', relative_path + '.png');
 
   renderTestHTMLFile(file, process.cwd() + htmlFilePath);
 
@@ -117,16 +153,17 @@ CSSUnit.prototype.reference = function refernce(file) {
   If it has an options property, we will look in it for viewport height and width settings.
 */
 CSSUnit.prototype.test = function test(file) {
-  var relative_path = file.relative.substr(0, file.relative.lastIndexOf('/'));
+  var relative_path = relativePath(file, specBaseDir),
+      relative_dir = relativeDir(relative_path);
 
-  mkdirp.sync( process.cwd() + '/temp/compare/' + relative_path );
-  mkdirp.sync( process.cwd() + '/test/compare/' + relative_path );
-  mkdirp.sync( process.cwd() + '/test/diff/' + relative_path );
+  mkdirp.sync( path.join(process.cwd(), '/temp/compare/', relative_dir) );
+  mkdirp.sync( path.join(process.cwd(), '/test/compare/', relative_dir) );
+  mkdirp.sync( path.join(process.cwd(), '/test/diff/', relative_dir) );
 
-  var htmlFilePath = '/temp/compare/' + file.relative,
+  var htmlFilePath = path.join('/temp/compare/', relative_path),
       htmlFileUrl = 'http://localhost:'+port+htmlFilePath,
-      refImgPath = process.cwd() + '/test/reference/' + file.relative + '.png',
-      newImgPath = process.cwd() + '/test/compare/'   + file.relative + '.png';
+      refImgPath = path.join(process.cwd(), '/test/reference/', relative_path + '.png'),
+      newImgPath = path.join(process.cwd(), '/test/compare/', relative_path + '.png');
 
   renderTestHTMLFile(file, process.cwd() + htmlFilePath);
 
