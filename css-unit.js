@@ -104,14 +104,19 @@ function capturePNGFile(url, outputPath, renderOptions) {
 function compare(refImg, newImg, diffImgPath) {
   var deferred = q.defer();
 
-  var diff = resemble(refImg).compareTo(newImg).onComplete(function(data) {
-    if( Number(data.misMatchPercentage) >= 0.01 ) {
-      data.getDiffImage().pack().pipe(fs.createWriteStream(diffImgPath));
-      deferred.reject(new Error('Unacceptable Difference (' + data.misMatchPercentage + ')\n   Reference: ' + refImg + '\n   New: ' + newImg + '\n   Diff: ' + diffImgPath ));
-    } else {
-      deferred.resolve();
-    }
-  });
+
+  if( !fs.existsSync(refImg) ) {
+    deferred.reject(new Error('ERROR: Reference file does not exist => ' + refImg));
+  } else {
+    var diff = resemble(refImg).compareTo(newImg).onComplete(function(data) {
+      if( Number(data.misMatchPercentage) >= 0.01 ) {
+        data.getDiffImage().pack().pipe(fs.createWriteStream(diffImgPath));
+        deferred.reject(new Error('Unacceptable Difference (' + data.misMatchPercentage + ')\n   Reference: ' + refImg + '\n   New: ' + newImg + '\n   Diff: ' + diffImgPath ));
+      } else {
+        deferred.resolve();
+      }
+    });
+  }
   return deferred.promise;
 }
 
@@ -169,7 +174,7 @@ CSSUnit.prototype.test = function test(file) {
 
   return capturePNGFile(htmlFileUrl, newImgPath, file.options)
   .then(function() {
-    console.log('comparing => ' + file.relative);
+    console.log('comparing => ' + relative_path);
     return compare(refImgPath, newImgPath, process.cwd() + '/test/diff/' + file.relative + '.png');
   });
 }
