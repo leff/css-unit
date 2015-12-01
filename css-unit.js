@@ -137,10 +137,6 @@ function containingDir(relative_path) {
 */
 CSSUnit.prototype.reference = function refernce(file) {
   var relative_path = relativePath(file, specBaseDir);
-  // ,
-  //     relative_dir = relativeDir(relative_path);
-
-  // mkdirp.sync( path.join(process.cwd(), '/temp/reference/', relative_dir) );
 
   var htmlFilePath = path.join('/temp/reference/', relative_path),
       htmlFileUrl = 'http://localhost:'+port+htmlFilePath,
@@ -159,13 +155,7 @@ CSSUnit.prototype.reference = function refernce(file) {
   If it has an options property, we will look in it for viewport height and width settings.
 */
 CSSUnit.prototype.test = function test(file) {
-   var relative_path = relativePath(file, specBaseDir);
-  // ,
-  //     relative_dir = relativeDir(relative_path);
-
-  // mkdirp.sync( path.join(process.cwd(), '/temp/compare/', relative_dir) );
-  // mkdirp.sync( path.join(process.cwd(), '/test/compare/', relative_dir) );
-  // mkdirp.sync( path.join(process.cwd(), '/test/diff/', relative_dir) );
+  var relative_path = relativePath(file, specBaseDir);
 
   var htmlFilePath = path.join('/temp/compare/', relative_path),
       htmlFileUrl = 'http://localhost:'+port+htmlFilePath,
@@ -177,7 +167,7 @@ CSSUnit.prototype.test = function test(file) {
   return capturePNGFile(htmlFileUrl, newImgPath, file.options)
   .then(function() {
     console.log('comparing => ' + relative_path);
-    return compare(refImgPath, newImgPath, process.cwd() + '/test/diff/' + file.relative + '.png');
+    return compare(refImgPath, newImgPath, process.cwd() + '/test/diff/' + relative_path + '.png');
   });
 }
 
