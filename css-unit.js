@@ -23,9 +23,9 @@ var specBaseDir = '/specs/';
 
 var q = require('q'),
     fs = require('fs'),
-    filendir = require('filendir'),
     http = require('http'),
     _ = require('lodash'),
+    mkdirp = require('mkdirp'),
     path = require('path'),
     finalhandler = require('finalhandler'),
     serveStatic = require('serve-static'),
@@ -57,6 +57,7 @@ function startServer() {
     var done = finalhandler(req, res);
     serve(req, res, done);
   })
+  // console.log('serving ', process.cwd(), 'on port ', port);
   server.listen(port);
 }
 
@@ -71,7 +72,7 @@ function renderTestHTMLFile(file, outputPath) {
       testContents: file.contents
     },
     rendered = testTempalte(context);
-  filendir.writeFileSync(outputPath, rendered);
+  fs.writeFileSync(outputPath, rendered);
   return rendered;
 }
 
@@ -89,7 +90,6 @@ function capturePNGFile(url, outputPath, renderOptions) {
     return browser.createPage(function(err, page) {
       return page.open(url, function(err, status) {
         page.set('viewportSize', viewportSize, function() {
-          filendir.mkdirp.sync( containingDir(outputPath) );
           page.render(outputPath, function(err) {
             browser.exit();
             deferred.resolve();
@@ -104,12 +104,12 @@ function capturePNGFile(url, outputPath, renderOptions) {
 function compare(refImg, newImg, diffImgPath) {
   var deferred = q.defer();
 
+
   if( !fs.existsSync(refImg) ) {
     deferred.reject(new Error('ERROR: Reference file does not exist => ' + refImg));
   } else {
     var diff = resemble(refImg).compareTo(newImg).onComplete(function(data) {
-      if( Number(data.misMatchPercentage) >= 0.03 ) {
-        filendir.mkdirp.sync( containingDir(diffImgPath) );
+      if( Number(data.misMatchPercentage) >= 0.01 ) {
         data.getDiffImage().pack().pipe(fs.createWriteStream(diffImgPath));
         deferred.reject(new Error('Unacceptable Difference (' + data.misMatchPercentage + ')\n   Reference: ' + refImg + '\n   New: ' + newImg + '\n   Diff: ' + diffImgPath ));
       } else {
@@ -125,7 +125,7 @@ function relativePath(file, relativeBaseDir) {
   return path.relative(path.join(file.cwd, relativeBaseDir), file.path);
 }
 
-function containingDir(relative_path) {
+function relativeDir(relative_path) {
   return relative_path.substr(0, relative_path.lastIndexOf('/'));
 }
 
@@ -136,7 +136,10 @@ function containingDir(relative_path) {
   If it has an options property, we will look in it for viewport height and width settings.
 */
 CSSUnit.prototype.reference = function refernce(file) {
-  var relative_path = relativePath(file, specBaseDir);
+  var relative_path = relativePath(file, specBaseDir),
+      relative_dir = relativeDir(relative_path);
+
+  mkdirp.sync( path.join(process.cwd(), '/temp/reference/', relative_dir) );
 
   var htmlFilePath = path.join('/temp/reference/', relative_path),
       htmlFileUrl = 'http://localhost:'+port+htmlFilePath,
@@ -155,7 +158,12 @@ CSSUnit.prototype.reference = function refernce(file) {
   If it has an options property, we will look in it for viewport height and width settings.
 */
 CSSUnit.prototype.test = function test(file) {
-  var relative_path = relativePath(file, specBaseDir);
+  var relative_path = relativePath(file, specBaseDir),
+      relative_dir = relativeDir(relative_path);
+
+  mkdirp.sync( path.join(process.cwd(), '/temp/compare/', relative_dir) );
+  mkdirp.sync( path.join(process.cwd(), '/test/compare/', relative_dir) );
+  mkdirp.sync( path.join(process.cwd(), '/test/diff/', relative_dir) );
 
   var htmlFilePath = path.join('/temp/compare/', relative_path),
       htmlFileUrl = 'http://localhost:'+port+htmlFilePath,
@@ -167,7 +175,7 @@ CSSUnit.prototype.test = function test(file) {
   return capturePNGFile(htmlFileUrl, newImgPath, file.options)
   .then(function() {
     console.log('comparing => ' + relative_path);
-    return compare(refImgPath, newImgPath, process.cwd() + '/test/diff/' + relative_path + '.png');
+    return compare(refImgPath, newImgPath, process.cwd() + '/test/diff/' + file.relative + '.png');
   });
 }
 

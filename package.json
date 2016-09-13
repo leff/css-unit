@@ -16,9 +16,9 @@
   "main": "./css-unit",
   "dependencies": {
     "connect": "^3.4.0",
-    "filendir": "^1.0.0",
     "finalhandler": "^0.4.0",
     "lodash": "^3.10.1",
+    "mkdirp": "^0.5.1",
     "node-phantom-simple": "^2.0.3",
     "node-resemble-js": "0.0.4",
     "node-slimerjs": "^1.0.1",
